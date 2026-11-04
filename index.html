@@ -1,0 +1,598 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TRACE · 발표 이해도 진단 (web)</title>
+<style>
+:root{--bg:#f5f6f8;--card:#fff;--ink:#1d2330;--sub:#667085;--line:#e3e6ec;--pri:#2b5cd6;--pri2:#e8effd;--ok:#1a8f5a;--warn:#c47a00;--bad:#c53030}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.6 -apple-system,"Segoe UI","Malgun Gothic",sans-serif}
+header.top{background:#fff;border-bottom:1px solid var(--line);padding:12px 24px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:5}
+header.top h1{font-size:17px;margin:0}header.top small{color:var(--sub)}
+.spacer{flex:1}
+.badge{font-size:12px;padding:3px 9px;border-radius:99px;background:var(--pri2);color:var(--pri)}
+.badge.off{background:#fdecec;color:var(--bad)}
+main{max-width:1480px;margin:18px auto;padding:0 24px 80px}
+.step{background:var(--card);border:1px solid var(--line);border-radius:10px;margin-bottom:14px}
+.step>header{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line)}
+.step>header h3{margin:0;font-size:15px}
+.num{width:24px;height:24px;border-radius:50%;background:var(--pri);color:#fff;font-size:12px;display:grid;place-items:center;flex:none}
+.chip{margin-left:auto;font-size:12px;color:var(--sub)}
+.chip.run{color:var(--pri)}.chip.done{color:var(--ok)}.chip.err{color:var(--bad)}
+.body{padding:14px 16px}
+.hint{color:var(--sub);font-size:12.5px;margin:0 0 10px}
+label{display:block;font-weight:600;margin:10px 0 4px;font-size:13px}
+input[type=text],input[type=password],select,textarea{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:7px;font:inherit;background:#fff}
+textarea{min-height:150px;resize:vertical}
+.row{display:flex;gap:12px;flex-wrap:wrap}.row>*{flex:1;min-width:220px}
+button{font:inherit;border:0;border-radius:7px;padding:8px 16px;background:var(--pri);color:#fff;cursor:pointer}
+button.sec{background:#fff;color:var(--ink);border:1px solid var(--line)}
+button:disabled{opacity:.5;cursor:not-allowed}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+th{background:#fafbfc;font-weight:600}
+.pill{display:inline-block;padding:1px 8px;border-radius:99px;font-size:12px;background:#eef0f4}
+.pill.미언급{background:#eef0f4;color:#667085}.pill.오개념{background:#fdecec;color:var(--bad)}.pill.부정확{background:#fff3e0;color:var(--warn)}
+.pill.표면적{background:#fff8d6;color:#8a6d00}.pill.정확{background:#e3f6ec;color:var(--ok)}.pill.적용적{background:#cdeedd;color:#0e6b40}
+.big{font-size:38px;font-weight:700;line-height:1}
+.gauge{position:relative;height:16px;background:#eceff4;border-radius:8px;margin:12px 0 4px}
+.gauge .rng{position:absolute;top:0;bottom:0;background:#b8caf5;border-radius:8px}
+.gauge .pt{position:absolute;top:-3px;width:4px;height:22px;background:var(--pri);border-radius:2px}
+.kv{display:flex;gap:28px;flex-wrap:wrap;align-items:flex-end}
+.kv div small{display:block;color:var(--sub)}
+.box{background:#fafbfc;border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin:8px 0}
+.q{background:#f1f3f7;border:1px solid #d5d9e2;border-left:4px solid var(--pri);border-radius:10px;padding:12px 16px;margin:12px 0}
+.q b{font-size:14.5px}
+.warn{color:var(--warn)}.bad{color:var(--bad)}.ok{color:var(--ok)}.sub{color:var(--sub);font-size:12.5px}
+ul{margin:4px 0 4px 18px;padding:0}
+details summary{cursor:pointer;color:var(--pri)}
+.files{font-family:Consolas,monospace;font-size:12px;columns:2;column-gap:20px}
+#modal{position:fixed;inset:0;background:rgba(20,25,40,.55);display:none;place-items:center;z-index:20}
+#modal.show{display:grid}
+#modal .dlg{background:#fff;border-radius:12px;width:min(560px,94vw);max-height:92vh;overflow:auto;padding:22px}
+#modal h2{margin:0 0 4px;font-size:18px}
+.err-msg{color:var(--bad);margin-top:8px;white-space:pre-wrap}
+.hist td,.hist th{font-size:12.5px}
+.banner{background:#fff6e0;border:1px solid #f0d9a0;color:#7a5600;border-radius:8px;padding:10px 14px;margin-bottom:14px}
+.pwrow{display:flex;gap:6px}.pwrow input{flex:1}.pwrow button{flex:none}
+details.adv{margin-top:10px}
+
+.navwrap{position:sticky;top:64px;z-index:4;background:var(--bg);padding:10px 24px 10px;border-bottom:1px solid var(--line)}
+nav.tabs{display:grid;grid-template-columns:2.2fr 1.4fr 1.2fr 1.3fr 1fr;gap:10px}
+nav.tabs button{position:relative;text-align:left;background:#fff;color:var(--ink);border:2px solid #c9d3ea;border-radius:12px;padding:9px 12px 8px;display:flex;flex-direction:column;gap:6px;font-weight:700;font-size:15px;line-height:1.3}
+nav.tabs button:hover{border-color:var(--pri)}
+nav.tabs button.on{background:var(--pri);border-color:var(--pri);color:#fff;box-shadow:0 3px 10px rgba(43,92,214,.35)}
+.tn{display:flex;align-items:center;gap:8px}
+.tn i{width:22px;height:22px;border-radius:50%;background:var(--pri2);color:var(--pri);font-style:normal;font-size:12px;display:grid;place-items:center;flex:none}
+nav.tabs button.on .tn i{background:#fff}
+nav.tabs button.g-done .tn i{background:var(--ok);color:#fff}
+nav.tabs button.g-err .tn i{background:var(--bad);color:#fff}
+nav.tabs button.g-run{border-color:var(--pri)}
+.tchips{display:flex;gap:4px;flex-wrap:wrap;min-height:21px;font-weight:400}
+.ps{font-size:11.5px;padding:2px 9px;border-radius:99px;background:#eef0f4;color:#667085;white-space:nowrap}
+.ps.run{background:var(--pri);color:#fff}.ps.done{background:#e3f6ec;color:var(--ok)}.ps.err{background:#fdecec;color:var(--bad)}
+.ps.cur{background:#fff;color:var(--pri);box-shadow:inset 0 0 0 1.5px var(--pri);font-weight:600}
+nav.tabs button.on .ps{background:rgba(255,255,255,.22);color:#fff}
+nav.tabs button.on .ps.run,nav.tabs button.on .ps.done,nav.tabs button.on .ps.cur{background:#fff;color:var(--pri)}
+nav.tabs button.on .ps.done{color:var(--ok)}
+.ps.run::before{content:"";display:inline-block;width:9px;height:9px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;margin-right:5px;animation:sp .8s linear infinite;vertical-align:-1px}
+nav.tabs button.on .ps.run::before{border-color:var(--pri);border-top-color:transparent}
+@keyframes sp{to{transform:rotate(360deg)}}
+nav.tabs button.new::after{content:"NEW";position:absolute;top:-7px;right:8px;font-size:10px;background:#e5484d;color:#fff;border-radius:99px;padding:0 7px;font-weight:700}
+.pnow{margin-top:8px;font-size:13.5px}
+.pbar{height:5px;background:#dfe4ee;border-radius:3px;margin-top:6px;overflow:hidden}.pbar i{display:block;height:100%;background:var(--pri);transition:width .3s}
+.choose{background:#eef0f4;border:1px solid #d5d9e2;border-radius:12px;padding:14px 16px;margin-top:14px}
+.choose .ctitle{font-size:13.5px;margin-bottom:10px}
+.choose .opt{background:transparent}
+.choose .or{display:flex;align-items:center;gap:10px;color:var(--sub);font-size:12.5px;margin:14px 0}
+.choose .or::before,.choose .or::after{content:"";flex:1;height:1px;background:#cdd2dd}
+details.gf{background:#f1f3f7;border:1px solid #d5d9e2;border-radius:10px;margin:12px 0}
+details.gf>summary{list-style:none;cursor:pointer;padding:10px 14px;font-weight:600;font-size:14px}
+details.gf>summary::-webkit-details-marker{display:none}
+details.gf>summary::before{content:"▸";display:inline-block;width:16px;color:var(--pri)}
+details.gf[open]>summary::before{content:"▾"}
+details.gf>.gbody{padding:4px 14px 14px;background:transparent}
+details.gf table{background:#fff}
+details.fold{padding:0}
+details.fold>summary{list-style:none;cursor:pointer;padding:12px 16px;font-weight:600;font-size:15px;color:var(--ink)}
+details.fold>summary::-webkit-details-marker{display:none}
+details.fold>summary::before{content:"▸";display:inline-block;width:18px;color:var(--pri)}
+details.fold[open]>summary::before{content:"▾"}
+details.fold[open]>summary{border-bottom:1px solid var(--line)}
+.tab[hidden]{display:none}
+.bar{height:10px;background:#b8caf5;border-radius:5px;min-width:2px}
+.legend td,.legend th{font-size:12.5px}
+select.rsel{width:auto;display:inline-block;padding:3px 8px}
+.qa-done{background:#f3faf6;border:1px solid #cdeedd;border-radius:8px;padding:8px 12px;margin-top:6px}
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>TRACE</h1><small>발표 이해도 진단 · ver1.11web</small>
+  <span class="spacer"></span>
+  <span id="tokBadge" class="badge" title="이 세션의 누적 토큰 사용량">토큰 0</span>
+  <span id="cfgBadge" class="badge off">키 없음</span>
+  <button class="sec" id="btnCfg">설정</button>
+</header>
+
+<div class="navwrap">
+  <nav class="tabs" id="tabs">
+    <button data-tab="input" class="on"><span class="tn"><i>1</i>입력</span><span class="tchips" data-g="input"></span></button>
+    <button data-tab="score"><span class="tn"><i>2</i>이해도 점수 · 신뢰도</span><span class="tchips" data-g="score"></span></button>
+    <button data-tab="q"><span class="tn"><i>3</i>학생에게 질문</span><span class="tchips" data-g="q"></span></button>
+    <button data-tab="fb"><span class="tn"><i>4</i>학생에게 피드백</span><span class="tchips" data-g="fb"></span></button>
+    <button data-tab="hist"><span class="tn"><i>5</i>저장된 파일 · 라운드 이력</span><span class="tchips" data-g="hist"></span></button>
+  </nav>
+  <div class="pnow" id="pNow">대기 중</div>
+  <div class="pbar"><i id="pBar" style="width:0%"></i></div>
+</div>
+<main>
+  <div id="banner" class="banner">API 키가 설정되지 않았습니다. 상단 <b>설정</b>에서 본인의 BAZE API 키를 입력하세요.</div>
+
+  <section class="tab" id="tab-input">
+    <div class="step"><header><h3>입력 — 발표자료 PPT · 발표 음성</h3></header>
+    <div class="body">
+      <div class="row">
+        <div><label style="margin-top:0">학생 이름/식별자 (선택)</label><input type="text" id="label" placeholder="예: 학생A" autocomplete="off"></div>
+        <div><label style="margin-top:0">모델 (설정에서 변경)</label><input type="text" id="modelShow" readonly placeholder="모델 미선택"></div>
+      </div>
+      <div class="choose">
+        <div class="ctitle">입력 방법 — <b>방법 1 또는 방법 2 중 하나</b>만 하면 됩니다 (발표자료 + 발표 음성)</div>
+        <div class="opt" id="sampleBox"><b>방법 1 · 테스트용 샘플</b> <span class="sub">— 내장된 발표자료 + 발표 음성으로 바로 시험합니다 (같은 발표자료 · 원본 강의자 / 못한 학생 / 잘한 학생의 발표)</span>
+          <p style="margin:8px 0 0"><button class="sec" id="btnS1" type="button">샘플 · 원본</button> <button class="sec" id="btnS2" type="button">샘플 · 못한 학생</button> <button class="sec" id="btnS3" type="button">샘플 · 잘한 학생</button>
+          <span class="sub" id="sampleMsg"></span></p></div>
+        <div class="or">또는</div>
+        <div class="opt"><b>방법 2 · 직접 입력</b>
+          <label>발표자료 (.pptx 또는 .pdf — PDF는 쪽 이미지를 모델이 그대로 읽습니다)</label>
+          <input type="file" id="pptFile" accept=".pptx,.pdf" autocomplete="off">
+          <label id="mediaLabel">발표 음성 파일</label>
+          <input type="file" id="mediaFile" accept="audio/*,.mp3,.m4a,.wav,.flac,.ogg,.opus,.aiff,.aac,.webm,.mp4" style="margin-bottom:4px">
+          <p class="sub" id="mediaHint" style="margin:0 0 8px">음성 파일은 <b>전사하지 않고 그대로 모델에 전달</b>합니다(이해도 평가 호출마다 첨부). 이 컴퓨터 서버에서 mp3로 정리한 뒤 전송하며, 선택한 모델이 음성 입력을 지원해야 합니다. 모델이 거부하면 오류로 알려 드립니다.</p>
+
+        </div>
+      </div>
+      <p style="margin-top:14px"><button id="btnRun">분석 시작</button> <button class="sec" id="btnReset" type="button">새로 시작</button> <span class="sub" id="runMsg"></span></p>
+      <div class="err-msg" id="err"></div>
+    </div></div>
+    <details class="step fold" id="fold1"><summary>알아야 할 개념 <span class="sub" id="cCount"></span></summary>
+      <div class="body" id="out1"><p class="sub">아직 결과가 없습니다. 분석을 시작하면 여기에 나옵니다.</p></div></details>
+  </section>
+
+  <section class="tab" id="tab-score" hidden>
+    <div class="step"><header><h3>학생의 이해도 점수 · 신뢰도</h3><span class="chip" id="rsel2"></span></header><div class="body" id="out2"><p class="sub">아직 결과가 없습니다.</p></div></div>
+    <div class="box" style="background:#f1f3f7;border-color:#d5d9e2;margin:0 0 14px"><b>이해도 점수 산출 근거</b><div id="outBasis" class="sub" style="margin-top:6px">아직 결과가 없습니다.</div></div>
+    <details class="step fold" id="foldU"><summary>불확실하거나 신뢰하기 어려운 점</summary><div class="body" id="outU"><p class="sub">아직 결과가 없습니다.</p></div></details>
+    <details class="step fold" id="fold3"><summary>이해도 점수 산출 근거 (개념별)</summary><div class="body">
+      <details class="box"><summary>수준·점수·범위는 무엇인가요? (보는 법)</summary>
+        <p class="sub"><b>점수</b>는 0~100의 숫자, <b>수준</b>은 모델이 그 개념에 대한 이해 정도를 짧은 말로 붙인 표현입니다. 점수대와 수준 이름의 대응 기준은 시스템에 정해 두지 않았습니다(모델 판단). 점수 옆 (낮음~높음)은 이 개념에 대해 점수가 있을 법한 범위로, 발화가 충분하고 명확하면 좁고 짧거나 모호하면 넓습니다. 근거는 학생 발화에서 인용하며, 인용이 전사에 실제로 없으면 ⚠로 표시합니다.</p></details>
+      <div id="out3"><p class="sub">아직 결과가 없습니다.</p></div></div></details>
+  </section>
+
+  <section class="tab" id="tab-q" hidden>
+    <div class="step"><header><h3>학생에게 질문 (0~3개 · 생성은 1회)</h3></header><div class="body" id="out4"><p class="sub">아직 결과가 없습니다.</p></div></div>
+  </section>
+
+  <section class="tab" id="tab-fb" hidden>
+    <div class="step"><header><h3>학생에게 피드백</h3><span class="chip" id="rsel5"></span></header><div class="body" id="out5"><p class="sub">아직 결과가 없습니다.</p></div></div>
+  </section>
+
+  <section class="tab" id="tab-hist" hidden>
+    <div class="step"><header><h3>저장된 파일 · 라운드 이력</h3></header><div class="body" id="outFiles"><p class="sub">아직 결과가 없습니다.</p></div></div>
+  </section>
+</main>
+
+<!-- 설정 -->
+<div id="modal">
+  <div class="dlg">
+    <h2>설정</h2>
+    <label>BAZE API 키</label>
+    <div class="pwrow"><input type="password" id="apiKey" autocomplete="off" placeholder="sk-..."><button type="button" class="sec" id="btnShow">보기</button></div>
+    <p class="sub" style="margin:4px 0 0">이 키는 이 탭에서만 기억되고, 새로고침하면 사라집니다. 저장소에 쓰지 않습니다.</p>
+    <label>모델</label>
+    <div class="pwrow"><select id="modelSel"></select><button type="button" class="sec" id="btnModels">목록 불러오기</button></div>
+    <input type="text" id="modelCustom" placeholder="사용할 모델 ID를 직접 입력 (예: claude-sonnet-5-5)" style="display:none;margin-top:6px">
+    <div class="err-msg" id="mdlErr"></div>
+    <details class="adv"><summary>고급</summary>
+      <label>게이트웨이 Base URL (비워두면 기본값)</label>
+      <input type="text" id="baseUrl" placeholder="https://api.baze.co/v1/gateway">
+    </details>
+    <label>기록 파일 저장 폴더 (선택)</label>
+    <p style="margin:0"><button type="button" class="sec" id="btnPickDir">폴더 선택…</button> <span class="sub" id="dirState">선택 안 함</span></p>
+    <p class="sub" style="margin:4px 0 0">크롬·엣지에서는 폴더를 고르면 결과가 그 폴더 안에 자동 저장됩니다. 고르지 않아도 '저장된 파일 · 라운드 이력' 탭에서 zip으로 내려받을 수 있습니다. 페이지를 새로고침하면 화면의 기록은 사라집니다.</p>
+    <p style="margin-top:14px"><button id="btnSave">저장</button> <button class="sec" id="btnClear">키 지우기</button> <button class="sec" id="btnClose">닫기</button></p>
+    <div class="err-msg" id="cfgErr"></div>
+  </div>
+</div>
+
+<script src="lib/jszip.min.js"></script>
+<script src="lib/pdf.min.js"></script>
+<script src="js/prompts.js"></script>
+<script src="js/llm.js"></script>
+<script src="js/slides.js"></script>
+<script src="js/pipeline.js"></script>
+<script src="js/render.js"></script>
+<script src="js/session.js"></script>
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const DEFAULT_MODEL="gemini-3.8-flash";
+let STORE_ERR=null;
+let ST=null, SID=null, SAVED=[], HIST=[], TIMES=null, DIR="", USAGE=null;
+let CONCEPTS=null, QSET=null, AS={}, FB={}, APPLIED={}, VIEW=null;
+let BUSY=false, INIT=false;
+let QUEUE=[], RUNNING=null, QDRAFT={};   // 답변 반영 대기열(순차 처리)
+function qstate(qid){if(RUNNING===qid)return "⟳ 반영 중…";const i=QUEUE.findIndex(x=>x.qid===qid);return i>=0?`⏳ 대기 중 — 앞 순서가 끝나면 자동으로 반영됩니다 (${i+1}번째)`:""}
+let KEY="", BASE="", MODEL=DEFAULT_MODEL;   // 키는 이 변수(탭 메모리)에만 존재. 새로고침하면 사라짐.
+
+async function api(path,opts){ return await localApi(path,opts); }   // 서버 없이 브라우저 안에서 처리
+const post=(p,b)=>api(p,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(b)});
+const cred=()=>({model:MODEL,api_key:KEY,base_url:BASE});
+const fmt=v=>v==null?"미제공":Number(v).toLocaleString();
+const cr=v=>v==null?"미제공":Number(v).toFixed(4);
+const dur=x=>{x=Number(x||0);return x>=60?`${Math.floor(x/60)}분 ${Math.round(x%60)}초`:`${x.toFixed(1)}초`};
+const sg=(v,nd=1,pct=false)=>v==null?"-":((v>=0?"+":"")+(pct?(v*100).toFixed(0)+"%p":v.toFixed(nd)));
+
+/* ---------- 탭 ---------- */
+function showTab(t){
+  document.querySelectorAll("nav.tabs button").forEach(b=>{b.classList.toggle("on",b.dataset.tab===t);if(b.dataset.tab===t)b.classList.remove("new")});
+  document.querySelectorAll(".tab").forEach(s=>s.hidden=(s.id!=="tab-"+t));
+}
+document.querySelectorAll("nav.tabs button").forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
+function mark(t){const b=document.querySelector(`nav.tabs button[data-tab="${t}"]`);if(!b.classList.contains("on"))b.classList.add("new")}
+
+/* ---------- 진행 표시줄 ---------- */
+let PS=[];
+const GROUPS=[["input","① 입력"],["score","② 이해도 점수"],["q","③ 질문"],["fb","④ 피드백"]];
+const grp=id=>(id==="read"||id==="figures"||id==="concepts"||id==="audio"||id==="scenes")?"input":(id.startsWith("assess")?"score":(id==="questions"?"q":"fb"));
+function pinit(){
+  PS=[["read","발표자료 읽기"],["figures","그림·차트 해석"],["concepts","개념 도출"],["audio","음성 파일 준비"],["assess0","이해도 평가(R0)"],["questions","질문 생성"],["fb0","피드백(R0)"]]
+    .map(([id,label])=>({id,label,state:"wait",t0:null,sec:null}));
+  prender();
+}
+function pget(id,label){let s=PS.find(x=>x.id===id);if(!s){s={id,label,state:"wait"};PS.push(s)}return s}
+function pstart(id,label){const s=pget(id,label);s.state="run";s.t0=Date.now();s.sec=null;prender()}
+function pdone(id){const s=pget(id);s.state="done";s.sec=(Date.now()-s.t0)/1000;prender()}
+function perr(id){const s=pget(id);s.state="err";s.sec=(Date.now()-s.t0)/1000;prender()}
+function prender(){
+  const busy=PS.some(s=>s.state==="run"||s.state==="err");
+  const nextWait=busy?null:PS.find(s=>s.state==="wait");
+  ["input","score","q","fb","hist"].forEach(g=>{
+    const box=document.querySelector(`.tchips[data-g="${g}"]`),btn=box.parentElement;
+    const L=PS.filter(s=>grp(s.id)===g);
+    if(g==="hist"){box.innerHTML='<span class="ps">시간 · 토큰 · 파일</span>';return}
+    box.innerHTML=L.map(s=>`<span class="ps ${s.state}${s===nextWait?" cur":""}">${s===nextWait?"▶ ":""}${s.state==="done"?"✓ ":""}${s.state==="err"?"✗ ":""}${esc(s.label)}${s.sec!=null?` · ${dur(s.sec)}`:""}</span>`).join("");
+    btn.classList.toggle("g-run",L.some(s=>s.state==="run"));
+    btn.classList.toggle("g-err",L.some(s=>s.state==="err"));
+    btn.classList.toggle("g-done",L.length>0&&L.every(s=>s.state==="done"));
+  });
+  const done=PS.filter(s=>s.state==="done").length;
+  $("#pBar").style.width=(PS.length?Math.round(done/PS.length*100):0)+"%";
+  ptick();
+}
+function ptick(){
+  const run=PS.find(s=>s.state==="run"),err=PS.find(s=>s.state==="err");
+  let t;
+  if(run)t=`▶ 현재 단계: <b>${esc(run.label)}</b> (${GROUPS.find(g=>g[0]===grp(run.id))[1]}) — 경과 ${dur((Date.now()-run.t0)/1000)}`;
+  else if(err)t=`<span class="bad">✗ 오류: ${esc(err.label)} 단계에서 멈췄습니다. 입력 탭의 오류 메시지를 확인하세요.</span>`;
+  else if(PS.length&&PS.every(s=>s.state==="done")){
+    const n=QSET?QSET.questions.length:0,k=Object.keys(APPLIED).length;
+    t=n?`✓ 완료 — 질문 답변 반영 ${k}/${n} (라운드 ${HIST.length?HIST[HIST.length-1].round:0}). ③ 질문 탭에서 답변을 입력하면 라운드가 진행됩니다.`:"✓ 모든 단계 완료";
+  }else if(PS.every(s=>s.state==="wait"))t="▶ 현재 단계: <b>① 입력</b> — 테스트 샘플을 고르거나 발표자료·전사를 직접 입력한 뒤 ‘분석 시작’을 누르세요.";
+  else t="";
+  $("#pNow").innerHTML=t;
+}
+setInterval(()=>{if(PS.some(s=>s.state==="run"))ptick()},500);
+async function stage(id,label,fn){pstart(id,label);try{const r=await fn();pdone(id);return r}catch(e){perr(id);throw e}}
+
+/* ---------- 상태 반영 ---------- */
+function applyState(r){
+  if(!r)return;
+  if(r.saved)SAVED=r.saved;if(r.dir)DIR=r.dir;STORE_ERR=r.store_error||null;
+  if(r.history)HIST=r.history;if(r.timings)TIMES=r.timings;
+  if(r.usage){USAGE=r.usage;
+    $("#tokBadge").textContent="토큰 "+(USAGE.n_calls&&USAGE.total==null?"미제공":fmt(USAGE.total??0))+(USAGE.credit!=null?" · 크레딧 "+Number(USAGE.credit).toFixed(2):"");}
+  renderHist();
+}
+function refreshHeader(){
+  const b=$("#cfgBadge");
+  b.textContent=KEY?"키 설정됨":"키 없음";b.className="badge"+(KEY?"":" off");
+  $("#banner").style.display=KEY?"none":"";
+  $("#modelShow").value=MODEL?(MODEL==="mock"?"mock (테스트)":MODEL):"";
+}
+async function loadStatus(){
+  ST=await api("/api/status");
+  $("#baseUrl").placeholder=ST.default_base;
+  refreshHeader();
+  if(!ST.configured||!KEY)openCfg(!!ST.configured);
+}
+function openCfg(closable){
+  $("#apiKey").value=KEY;$("#baseUrl").value=BASE;$("#btnClose").style.display="";
+  $("#cfgErr").textContent="";$("#modal").classList.add("show");
+}
+$("#btnCfg").onclick=()=>openCfg(true);
+$("#btnClose").onclick=()=>$("#modal").classList.remove("show");
+$("#btnShow").onclick=()=>{const i=$("#apiKey");const h=i.type==="password";i.type=h?"text":"password";$("#btnShow").textContent=h?"숨기기":"보기"};
+const PRESETS=["solar-mini4","solar-pro4","gemini-4-argon","gemini-3.8-flash","gemini-3.5-flash-lite","gemini-3.1-pro-preview","claude-sonnet-5-5","claude-haiku-5-5","claude-opus-5-5","claude-fable-5-1","gpt-6.1-sol","gpt-6.1-terra","gpt-6-luna","jev-1.14.0"];
+let FETCHED=[];
+function fillModels(list){
+  if(list)FETCHED=list;
+  const sel=$("#modelSel");
+  const extra=FETCHED.filter(m=>!PRESETS.includes(m.id));
+  let h=`<optgroup label="기본 목록">${PRESETS.map(id=>`<option value="${esc(id)}">${esc(id)}</option>`).join("")}</optgroup>`;
+  if(extra.length)h+=`<optgroup label="게이트웨이에서 불러온 모델">${extra.map(m=>`<option value="${esc(m.id)}">${esc(m.id)}${m.owned_by?" · "+esc(m.owned_by):""}</option>`).join("")}</optgroup>`;
+  h+=`<optgroup label="기타"><option value="__custom__">직접 입력…</option><option value="mock">mock (테스트, API 호출 없음)</option></optgroup>`;
+  sel.innerHTML=h;
+  const all=[...PRESETS,...extra.map(m=>m.id),"mock"];
+  if(MODEL&&all.includes(MODEL))sel.value=MODEL;
+  else if(MODEL){sel.value="__custom__";$("#modelCustom").value=MODEL}
+  else sel.value=DEFAULT_MODEL;
+  syncCustom();
+}
+function syncCustom(){$("#modelCustom").style.display=$("#modelSel").value==="__custom__"?"":"none"}
+$("#modelSel").onchange=syncCustom;
+function chosenModel(){const v=$("#modelSel").value;return v==="__custom__"?$("#modelCustom").value.trim():v}
+fillModels();
+$("#btnModels").onclick=async()=>{
+  $("#mdlErr").textContent="";
+  const k=$("#apiKey").value.trim();
+  if(!k){$("#mdlErr").textContent="API 키를 먼저 입력하세요.";return}
+  $("#btnModels").disabled=true;
+  try{const r=await post("/api/models",{api_key:k,base_url:$("#baseUrl").value.trim()});fillModels(r.models);
+    $("#mdlErr").innerHTML=`<span class="ok">모델 ${r.models.length}개를 불러왔습니다.</span>`}
+  catch(e){$("#mdlErr").textContent=e.message}
+  $("#btnModels").disabled=false;
+};
+$("#btnSave").onclick=async()=>{
+  $("#cfgErr").textContent="";
+  try{
+    KEY=$("#apiKey").value.trim();BASE=$("#baseUrl").value.trim();MODEL=chosenModel();
+    if(!MODEL){$("#cfgErr").textContent="모델을 선택하거나 직접 입력하세요.";return}
+    $("#modal").classList.remove("show");
+    refreshHeader();
+    $("#cfgBadge").title=GLOBAL.dirHandle?"저장 폴더: "+GLOBAL.dirHandle.name:"저장 폴더 없음(zip으로 내려받기)";
+  }catch(e){$("#cfgErr").textContent=e.message}
+};
+$("#btnClear").onclick=()=>{KEY="";$("#apiKey").value="";FETCHED=[];fillModels();refreshHeader()};
+
+
+/* ---------- 렌더 ---------- */
+const IMP={3:"★★★",2:"★★",1:"★"};
+const OPENST={};
+const gf=(k,title,inner,def=true)=>`<details class="gf" ${(k in OPENST?OPENST[k]:def)?"open":""} ontoggle="OPENST['${k}']=this.open"><summary>${title}</summary><div class="gbody">${inner}</div></details>`;
+function roundSel(id,rounds,cb){
+  const el=$(id);
+  if(rounds.length<2){el.innerHTML=rounds.length?`라운드 ${rounds[0]}`:"";return}
+  el.innerHTML=`라운드 보기: <select class="rsel">${rounds.map(r=>`<option value="${r}" ${r===VIEW?"selected":""}>${r}${r===0?" (발표)":""}</option>`).join("")}</select>`;
+  el.querySelector("select").onchange=e=>{VIEW=Number(e.target.value);cb()};
+}
+function renderConcepts(c){
+  CONCEPTS=c;
+  $("#out1").innerHTML=`<p class="sub">발표 주제: ${esc(c.topic)} · 개념 ${c.concepts.length}개 · 학생이 발표자료를 다 이해했다고 보려면 알아야 할 개념</p>
+  <table><tr><th>id</th><th>개념</th><th>중요도</th><th>구분</th><th>쪽</th><th>설명</th></tr>
+  ${c.concepts.map(x=>`<tr><td>${esc(x.id)}</td><td><b>${esc(x.name)}</b></td><td>${IMP[x.importance]}</td>
+  <td>${x.origin==="slide"?"슬라이드":"선행 개념"}${x.from_figure?" 📊그림·차트":""}</td><td>${esc((x.slides||[]).join(","))}</td>
+  <td>${esc(x.description)}${x.quote_verified===false?' <span class="warn">⚠ 인용 미확인</span>':""}</td></tr>`).join("")}</table>`;
+  $("#cCount").textContent=`(${c.concepts.length}개 · 눌러서 열기/닫기)`;
+}
+function renderScore(){
+  const rs=Object.keys(AS).map(Number).sort((a,b)=>a-b);
+  if(!rs.length)return;
+  if(VIEW==null||!(VIEW in AS))VIEW=rs[rs.length-1];
+  roundSel("#rsel2",rs,()=>{renderScore();renderFeedback()});
+  const a=AS[VIEW],o=a.overall,h=HIST.find(x=>x.round===VIEW)||{};
+  const cl=o.confidence>=.8?"ok":(o.confidence>=.6?"warn":"bad");
+  $("#out2").innerHTML=`<p class="sub">라운드 ${VIEW} — ${esc(h.trigger||"")}</p><div class="kv">
+    <div><small>이해도 점수</small><span class="big">${o.score.toFixed(1)}</span> / 100 ${h.d_score!=null?`<span class="sub">(${sg(h.d_score)})</span>`:""}</div>
+    <div><small>범위</small><b>${o.low.toFixed(1)} ~ ${o.high.toFixed(1)}</b></div>
+    <div><small>신뢰율</small><b class="${cl}" style="font-size:22px">${(o.confidence*100).toFixed(0)}%</b> <span class="pill">${esc(o.confidence_label)}</span> ${h.d_conf!=null?`<span class="sub">(${sg(h.d_conf,0,true)})</span>`:""}</div>
+    <div><small>언급·평가된 개념</small><b>${(o.coverage*100).toFixed(0)}%</b></div></div>
+  <div class="gauge"><div class="rng" style="left:${o.low}%;width:${Math.max(.5,o.high-o.low)}%"></div><div class="pt" style="left:calc(${o.score}% - 2px)"></div></div>
+  <div class="sub">파란 띠 = 점수가 있을 법한 범위</div>
+  <p class="sub">종합 점수·범위·신뢰율은 모델이 직접 판단한 값입니다. 범위는 통계적 신뢰구간이 아닙니다.</p>`;
+  $("#outBasis").innerHTML=`<ul style="margin-top:0"><li><b>이해도 점수</b>: ${esc(o.score_basis||"(기록 없음)")}</li><li><b>신뢰율·범위</b>: ${esc(o.confidence_basis||"(기록 없음)")}</li></ul>`;
+  $("#outU").innerHTML=`<ul>${(a.uncertainties.length?a.uncertainties:["(없음)"]).map(u=>`<li>${esc(u)}</li>`).join("")}
+    ${a.notes.map(n=>`<li class="warn">${esc(n)}</li>`).join("")}</ul>`;
+  const prev=AS[VIEW-1];const pm={};if(prev)prev.items.forEach(i=>pm[i.id]=i);
+  $("#out3").innerHTML=`<table><tr><th>개념</th><th>수준</th><th>점수 (범위)</th><th>근거</th></tr>
+  ${a.items.map(i=>{const b=pm[i.id];const ch=b&&(Math.abs(i.score-b.score)>=1||b.level!==i.level)?`<div class="sub ok">라운드 ${VIEW-1} 대비: ${b.score.toFixed(0)}(${esc(b.level)}) → ${i.score.toFixed(0)}(${esc(i.level)})</div>`:"";
+   return `<tr><td><b>${esc(i.id)} ${esc(i.name)}</b><div class="sub">중요도 ${IMP[i.importance]}</div></td>
+   <td><span class="pill ${esc(i.level)}">${esc(i.level)}</span></td>
+   <td>${i.score.toFixed(0)} (${i.low.toFixed(0)}~${i.high.toFixed(0)})${ch}</td>
+   <td>${esc(i.rationale)}${i.misconception?`<div class="bad">오개념: ${esc(i.misconception)}</div>`:""}
+   ${i.evidence.map(q=>`<div class="sub">“${esc(q.text)}”${q.verified===false?' <span class="warn">⚠ 전사에서 확인 안 됨</span>':""}</div>`).join("")}</td></tr>`}).join("")}</table>`;
+  mark("score");
+}
+function renderQuestions(){
+  const q=QSET;
+  if(!q){return}
+  if(!q.questions.length){$("#out4").innerHTML=`<div class="box">추가 질문 없음 — ${esc(q.no_question_reason)}</div>`;mark("q");return}
+  const nextR=HIST.length+QUEUE.length+(RUNNING?1:0);
+  $("#out4").innerHTML=`<p class="hint">질문은 위에서부터 불확실을 가장 크게 줄일 수 있는 순서입니다. 질문 생성은 <b>1회</b>만 진행합니다. 질문 하나의 답변을 전사해 입력하고 <b>이 답변 반영</b>을 누르면 라운드가 1씩 늘어납니다 (Q1→라운드 1, Q2→라운드 2 …). 변화는 '저장된 파일 · 라운드 이력' 탭에서 볼 수 있습니다.</p>
+  ${q.questions.map(x=>{const ap=APPLIED[x.qid];const h=ap?HIST.find(r=>r.trigger===x.qid+" 답변 반영"):null;
+   return `<div class="q"><b>${esc(x.qid)}. ${esc(x.question)}</b>
+   <div class="sub">확인 대상: ${esc(x.targets.join(", "))} · 목적: ${esc(x.purpose)}</div>
+   <details><summary>이해했다면 나올 답 / 판단 방식</summary><div class="sub">${esc(x.expected_good_answer)}<br>${esc(x.how_it_resolves)}</div></details>
+   ${ap?`<div class="qa-done"><b>학생 답변</b><div style="white-space:pre-wrap">${esc(ap)}</div>${h?`<div class="ok" style="margin-top:4px">→ 라운드 ${h.round} 반영: 점수 ${h.score.toFixed(1)} (${sg(h.d_score)}), 신뢰율 ${(h.conf*100).toFixed(0)}% (${sg(h.d_conf,0,true)})</div>`:""}</div>`
+   :(()=>{const st=qstate(x.qid);
+     return `<textarea data-qid="${esc(x.qid)}" ${st?"readonly":""} style="min-height:90px;margin-top:6px;background:#fff${st?";opacity:.7":""}" placeholder="학생 답변 전사">${esc(QDRAFT[x.qid]||"")}</textarea>
+     <p>${st?`<span class="sub">${st}</span>`:`<button data-apply="${esc(x.qid)}" class="applybtn">이 답변 반영 → 라운드 ${nextR}</button>`}</p>`})()}</div>`}).join("")}
+  <div class="err-msg" id="err2"></div>`;
+  document.querySelectorAll(".applybtn").forEach(b=>b.onclick=()=>applyAnswer(b.dataset.apply));
+  document.querySelectorAll("textarea[data-qid]").forEach(t=>t.oninput=()=>{QDRAFT[t.dataset.qid]=t.value});
+  setBusyUi();mark("q");
+}
+function renderFeedback(){
+  const rs=Object.keys(FB).map(Number).sort((a,b)=>a-b);
+  if(!rs.length)return;
+  const v=(VIEW!=null&&VIEW in FB)?VIEW:rs[rs.length-1];
+  roundSel("#rsel5",rs,()=>{VIEW=Number($("#rsel5 select").value);renderScore();renderFeedback()});
+  if($("#rsel5 select"))$("#rsel5 select").value=v;
+  const f=FB[v];
+  const blk=(x,mis)=>`<div class="box"><b>${esc(x.concept_id)} ${esc(x.concept_name)}</b><ul>
+   ${mis?`<li>학생의 설명: ${esc(x.student_said)}</li><li>문제점: ${esc(x.problem)}</li><li>올바른 설명: ${esc(x.correct_explanation)}</li>`:`<li>설명: ${esc(x.explanation)}</li>`}
+   <li>공부 가이드: ${esc(x.how_to_study)}</li></ul></div>`;
+  $("#out5").innerHTML=`<p class="sub">라운드 ${v} 기준 (오개념 먼저, 그다음 개념 공백)</p><p>${esc(f.summary)}</p><h4 style="margin:12px 0 4px">1. 오개념</h4>
+  ${f.misconceptions.length?f.misconceptions.map(x=>blk(x,true)).join(""):'<div class="sub">확인된 오개념 없음</div>'}
+  <h4 style="margin:12px 0 4px">2. 개념 공백</h4>
+  ${f.gaps.length?f.gaps.map(x=>blk(x,false)).join(""):'<div class="sub">확인된 개념 공백 없음</div>'}`;
+  mark("fb");
+}
+function usageHtml(){
+  if(!USAGE||!USAGE.n_calls)return "";
+  const rows=USAGE.calls.map((c,i)=>`<tr><td>${i+1}</td><td>${esc(c.stage)} (라운드 ${c.round})</td><td>${esc(c.model)}</td><td>${fmt(c.prompt)}</td><td>${fmt(c.completion)}</td><td>${fmt(c.total)}</td><td>${cr(c.credit)}</td></tr>`).join("");
+  return gf("usage","토큰 사용량 · 차감 크레딧 (이 세션 누적)",`<table class="hist"><tr><th>#</th><th>단계</th><th>모델</th><th>입력</th><th>출력</th><th>합계</th><th>차감 크레딧</th></tr>${rows}
+  <tr><td></td><td><b>합계</b></td><td></td><td><b>${fmt(USAGE.prompt)}</b></td><td><b>${fmt(USAGE.completion)}</b></td><td><b>${fmt(USAGE.total)}</b></td><td><b>${cr(USAGE.credit)}</b></td></tr></table>
+  ${USAGE.n_unreported?`<p class="sub warn">호출 ${USAGE.n_unreported}건은 응답에 usage가 없어 '미제공'입니다. (mock 모델은 API를 호출하지 않아 항상 미제공)</p>`:""}
+  ${USAGE.n_credit_unreported?`<p class="sub warn">호출 ${USAGE.n_credit_unreported}건은 응답에 billing(차감 크레딧)이 없어 '미제공'입니다.</p>`:""}`);
+}
+function renderHist(){
+  if(!SID)return;
+  const hr=HIST.map(r=>`<tr><td>${r.round}</td><td>${esc(r.trigger)}</td><td>${r.score.toFixed(1)}</td><td>${r.low.toFixed(1)}~${r.high.toFixed(1)}</td><td>${(r.conf*100).toFixed(0)}% (${esc(r.conf_label)})</td><td>${sg(r.d_score)}</td><td>${sg(r.d_conf,0,true)}</td><td>${dur(r.seconds)}</td></tr>
+    ${r.changes&&r.changes.length?`<tr><td></td><td colspan="7" class="sub">개념 ${r.n_changes}개 변화: ${r.changes.map(c=>`${esc(c.id)} ${esc(c.name)} ${c.from.toFixed(0)}→${c.to.toFixed(0)}`).join(" · ")}</td></tr>`:""}`).join("");
+  const T=TIMES||{stages:[],active_seconds:0,wall_seconds:0};
+  const mx=Math.max(1,...T.stages.map(s=>s.seconds));
+  const tr=T.stages.map(s=>`<tr><td>${esc(s.label)}</td><td>${s.round}</td><td>${esc(s.start)}</td><td>${dur(s.seconds)}</td><td style="width:35%"><div class="bar" style="width:${Math.max(1,s.seconds/mx*100)}%"></div></td></tr>`).join("");
+  const histTbl=`<table class="hist"><tr><th>라운드</th><th>계기</th><th>점수</th><th>범위</th><th>신뢰율</th><th>Δ점수</th><th>Δ신뢰율</th><th>소요</th></tr>${hr||'<tr><td colspan="8" class="sub">아직 없음</td></tr>'}</table>`;
+  const timeTbl=`<table class="hist"><tr><th>단계</th><th>라운드</th><th>시작</th><th>소요</th><th></th></tr>${tr||'<tr><td colspan="5" class="sub">아직 없음</td></tr>'}
+  <tr><td><b>합계(단계 소요 합)</b></td><td></td><td></td><td><b>${dur(T.active_seconds)}</b></td><td class="sub">세션 시작 후 경과 ${dur(T.wall_seconds)} (답변 입력 대기 포함)</td></tr></table>`;
+  $("#outFiles").innerHTML=`<p style="margin:0 0 4px">저장 위치: <code>${esc(DIR)}</code> <button class="sec" id="btnZip" type="button" style="margin-left:8px">기록 전체 zip 내려받기</button></p>
+  ${GLOBAL.dirHandle?"":'<p class="sub warn" style="margin:0 0 4px">저장 폴더를 고르지 않았습니다. 이 페이지를 닫거나 새로고침하면 기록이 사라지니, 필요하면 zip을 내려받으세요.</p>'}
+  ${STORE_ERR?`<p class="sub bad" style="margin:0 0 4px">폴더 저장 오류: ${esc(STORE_ERR)} (zip으로 내려받으세요)</p>`:""}
+  ${gf("h_rec","기록 파일 안내",`<b>전체 기록</b>: <code>전체_기록.md</code> (모든 단계·라운드·시간·토큰·과정 로그 포함) · <b>요약본</b>: <code>요약본.md</code> (점수·신뢰도, 질문, 피드백)
+  ${SAVED.includes("전체_기록.md")?"":'<div class="sub">※ 첫 평가가 끝나면 생성되고, 단계가 끝날 때마다 갱신됩니다.</div>'}`)}
+  ${gf("h_round","라운드 이력 (질문 하나 반영 = 라운드 1)",histTbl)}
+  ${gf("h_time","단계별 소요 시간",timeTbl)}
+  ${usageHtml()}
+  ${gf("h_files",`저장된 파일 (${SAVED.length})`,`<div class="files">${SAVED.map(esc).join("<br>")}</div>`,false)}`;
+  mark("hist");
+}
+
+/* ---------- 실행 ---------- */
+function setBusyUi(){document.querySelectorAll(".applybtn").forEach(b=>b.disabled=INIT);$("#btnRun").disabled=BUSY}
+function setBusy(b,msg){BUSY=b;setBusyUi();$("#runMsg").textContent=msg||""}
+
+$("#btnRun").onclick=async()=>{
+  $("#err").textContent="";
+  const f=$("#pptFile").files[0],t="";
+  if(!ST.configured||(!KEY&&MODEL!=="mock")){openCfg(true);return}
+  if(!MODEL){$("#err").textContent="설정에서 모델을 선택하세요.";return}
+  if(!f&&!SAMPLE){$("#err").textContent="발표자료 파일을 선택하거나 테스트파일을 고르세요.";return}
+  if(!MF()&&!SAMPLE){$("#err").textContent="발표 음성 파일을 선택하거나 테스트파일을 고르세요.";return}
+  SID=null;HIST=[];SAVED=[];USAGE=null;TIMES=null;CONCEPTS=null;QSET=null;AS={};FB={};APPLIED={};QUEUE=[];RUNNING=null;QDRAFT={};VIEW=null;
+  $("#tokBadge").textContent="토큰 0";
+  ["out2","out3","out4","out5","outFiles","rsel2","rsel5","outBasis","outU"].forEach(i=>$("#"+i).innerHTML="");$("#out1").innerHTML='<p class="sub">분석 중…</p>';$("#cCount").textContent="";
+  pinit();INIT=true;setBusy(true,"진행 중…");
+  try{
+    const fd=new FormData();if(SAMPLE)fd.append("sample",SAMPLE);else fd.append("file",f);fd.append("student_label",$("#label").value);
+    const s=await stage("read","발표자료 읽기",()=>api("/api/session",{method:"POST",body:fd}));
+    SID=s.id;applyState(s);
+    const notes={};
+    const fg=await stage("figures","그림·차트 해석",()=>post(`/api/session/${SID}/figures`,{...cred(),notes}));
+    applyState(fg);
+    const fmsg=[...(s.warnings||[]),...fg.warnings];
+    if(fg.figures.length)fmsg.push("그림·차트: "+fg.figures.map(r=>`슬라이드 ${r.slide} ${r.status}`).join(", "));
+    $("#err").innerHTML=fmsg.map(w=>`<span class="warn">⚠ ${esc(w)}</span>`).join("<br>");
+    const c=await stage("concepts","개념 도출",()=>post(`/api/session/${SID}/concepts`,cred()));
+    applyState(c);renderConcepts(c.concepts);
+    let tt=t;
+    if(MF()||SAMPLE){
+      const fd2=new FormData();if(MF())fd2.append("file",MF());else fd2.append("sample",SAMPLE);
+      await stage("audio","음성 파일 준비",()=>api(`/api/session/${SID}/audio`,{method:"POST",body:fd2}));
+      tt="";
+    }
+    const a=await stage("assess0","이해도 평가(R0)",()=>post(`/api/session/${SID}/assess`,{...cred(),transcript:tt}));
+    applyState(a);AS[a.round]=a.assessment;renderScore();
+    const q=await stage("questions","질문 생성",()=>post(`/api/session/${SID}/questions`,cred()));
+    applyState(q);QSET=q.questions;renderQuestions();
+    const fb=await stage("fb0","피드백(R0)",()=>post(`/api/session/${SID}/feedback`,cred()));
+    applyState(fb);FB[fb.round]=fb.feedback;renderFeedback();
+    showTab("score");
+  }catch(e){$("#err").textContent=e.message}
+  INIT=false;setBusy(false,"");ptick();
+};
+
+function applyAnswer(qid){
+  const e2=$("#err2");if(e2)e2.textContent="";
+  const ta=document.querySelector(`textarea[data-qid="${qid}"]`),txt=(ta&&ta.value||"").trim();
+  if(!txt){if(e2)e2.textContent=`${qid}의 답변을 입력하세요.`;return}
+  if(!KEY&&MODEL!=="mock"){openCfg(true);return}
+  if(APPLIED[qid]||qstate(qid)||INIT)return;
+  QDRAFT[qid]=txt;QUEUE.push({qid,txt});
+  renderQuestions();
+  if(!RUNNING)runQueue();
+}
+async function runQueue(){
+  setBusy(true,"답변 반영 중…");
+  while(QUEUE.length){
+    const {qid,txt}=QUEUE.shift();RUNNING=qid;renderQuestions();
+    const rnd=HIST.length;
+    $("#runMsg").textContent=`라운드 ${rnd} 진행 중…`;
+    try{
+      const a=await stage("assess"+rnd,`R${rnd} 재평가(${qid})`,()=>post(`/api/session/${SID}/assess`,{...cred(),answers:{[qid]:txt}}));
+      applyState(a);AS[a.round]=a.assessment;APPLIED[qid]=txt;VIEW=a.round;renderScore();
+      const f=await stage("fb"+rnd,`R${rnd} 피드백`,()=>post(`/api/session/${SID}/feedback`,cred()));
+      applyState(f);FB[f.round]=f.feedback;renderFeedback();
+    }catch(e){
+      QUEUE.length=0;RUNNING=null;renderQuestions();
+      const x=$("#err2");if(x)x.textContent=`${qid} 반영 중 오류: ${e.message} (대기 중이던 답변은 취소되었습니다. 다시 눌러 주세요)`;
+      break;
+    }
+    RUNNING=null;renderQuestions();renderHist();
+  }
+  RUNNING=null;renderQuestions();renderHist();
+  setBusy(false,"");ptick();
+}
+function MF(){return $("#mediaFile").files[0]||null}
+$("#mediaFile").onchange=()=>{if(MF()){SAMPLE_T=false}};
+
+/* ---------- 테스트 샘플 · 새로 시작 ---------- */
+let SAMPLE="",SAMPLE_T=false;
+async function loadSample(n){
+  try{
+    const r=await api("/api/sample/"+n);
+    SAMPLE=n;$("#pptFile").value="";$("#mediaFile").value="";
+    $("#label").value=r.label;
+    $("#sampleMsg").innerHTML=`<span class="ok">✓ ${esc(r.title)} 불러옴 — 발표자료: ${esc(r.ppt_name)} (내장)${r.audio_name?` + 발표 음성: ${esc(r.audio_name)} (내장)`:""}. ${r.audio_name?"":"<b>샘플 음성이 아직 없습니다</b> — 방법 2의 발표 음성 파일만 직접 선택하세요. "}준비되면 <b>분석 시작</b>을 누르세요.</span>`;
+  }catch(e){$("#err").textContent=e.message}
+}
+$("#btnS1").onclick=()=>loadSample("original");$("#btnS2").onclick=()=>loadSample("bad");$("#btnS3").onclick=()=>loadSample("good");
+$("#pptFile").onchange=()=>{if($("#pptFile").files.length){SAMPLE="";$("#sampleMsg").textContent=""}};
+function resetAll(){
+  if(BUSY)return;
+  SID=null;HIST=[];SAVED=[];USAGE=null;TIMES=null;CONCEPTS=null;QSET=null;AS={};FB={};APPLIED={};QUEUE=[];RUNNING=null;QDRAFT={};VIEW=null;SAMPLE="";DIR="";
+  ["label"].forEach(i=>$("#"+i).value="");
+  ["pptFile","mediaFile"].forEach(i=>$("#"+i).value="");
+  $("#sampleMsg").textContent="";$("#err").textContent="";$("#runMsg").textContent="";$("#tokBadge").textContent="토큰 0";
+  ["out1","out2","out3","out4","out5","outFiles","rsel2","rsel5"].forEach(i=>$("#"+i).innerHTML="");
+  ["out1","out2","out3","out4","out5","outFiles","outU"].forEach(i=>$("#"+i).innerHTML='<p class="sub">아직 결과가 없습니다.</p>');$("#outBasis").textContent="아직 결과가 없습니다.";
+  document.querySelectorAll("nav.tabs button").forEach(b=>b.classList.remove("new"));
+  $("#cCount").textContent="";document.querySelectorAll("details.fold").forEach(d=>d.open=false);
+  pinit();showTab("input");
+}
+$("#btnReset").onclick=resetAll;
+window.addEventListener("pageshow",e=>{if(e.persisted)resetAll()});
+resetAll();   // 페이지를 열거나 새로고침할 때 브라우저가 복원한 입력값도 비운다
+pinit();
+document.addEventListener("click",async e=>{
+  if(e.target&&e.target.id==="btnZip"){
+    const s=SESSIONS[SID];if(!s)return;
+    const a=document.createElement("a");a.href=URL.createObjectURL(await s.zip());a.download=`TRACE_${s.id}.zip`;
+    document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),10000);
+  }
+});
+if(!window.showDirectoryPicker){$("#btnPickDir").disabled=true;$("#dirState").textContent="이 브라우저는 폴더 선택을 지원하지 않습니다(크롬·엣지 필요) — zip 내려받기를 이용하세요."}
+$("#btnPickDir").onclick=async()=>{
+  $("#cfgErr").textContent="";
+  try{
+    const h=await showDirectoryPicker({mode:"readwrite"});GLOBAL.dirHandle=h;
+    $("#dirState").textContent="선택됨: "+h.name;
+    const s=SESSIONS[SID];if(s){await s.store.attach(h);renderHist()}
+    $("#cfgBadge").title="저장 폴더: "+h.name;
+  }catch(e){if(e.name!=="AbortError")$("#cfgErr").textContent="폴더를 선택하지 못했습니다: "+e.message}
+};
+window.addEventListener("beforeunload",e=>{if(SID&&!GLOBAL.dirHandle&&SAVED.length){e.preventDefault();e.returnValue=""}});
+loadStatus();
+</script>
+</body>
+</html>
