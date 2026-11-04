@@ -113,15 +113,16 @@ class Session {
 
 const getSession = sid => { const s = SESSIONS[sid]; if (!s) throw new Error("세션을 찾을 수 없습니다. (페이지를 새로고침하면 진행 중 세션은 초기화됩니다. 저장한 폴더·zip에는 기록이 남아 있습니다.)"); return s; };
 
-async function runLlm(s, b, system, user, stage, images, audio) {
+async function runLlm(s, b, system, user, stage, images, audio, media) {
   const modelId = b.model;
   if (modelId !== "mock" && !(b.api_key || "").trim()) throw new Error("API 키가 없습니다. 상단 '설정'에서 BAZE API 키를 입력하세요.");
   s.model = modelId; s.nCalls++;
   const t0 = Date.now(); let data, raw, usage;
-  try { [data, raw, usage] = await callJson(modelId, (b.api_key || "").trim(), system, user, stage, b.base_url, images, audio); }
+  try { [data, raw, usage] = await callJson(modelId, (b.api_key || "").trim(), system, user, stage, b.base_url, images, audio, media); }
   catch (e) {
     s.log("llm_error", { stage, model: modelId, error: String(e.message).slice(0, 300).replace(/\n/g, " ") });
     if (audio && e instanceof LLMError) throw new Error(`⛔ 모델 '${modelId}'이(가) 음성 파일 입력을 받지 못했습니다(거부 또는 미지원). 음성 입력을 지원하는 다른 모델을 선택하세요. — 원인: ${e.message}`);
+    if (media && media.length && e instanceof LLMError) throw new Error(`⛔ 모델 '${modelId}'이(가) PDF 파일 직접 입력을 받지 못했습니다(거부 또는 미지원). Gemini 계열의 PDF 입력을 지원하는 모델을 선택하세요. — 원인: ${e.message}`);
     if (images && images.length && e instanceof LLMError) throw new Error(`⛔ 모델 '${modelId}'이(가) 발표자료 이미지 입력을 받지 못했습니다(거부 또는 미지원). 이미지 입력을 지원하는 다른 모델을 선택하세요. — 원인: ${e.message}`);
     throw new Error(e instanceof LLMError ? `LLM 호출 실패(${stage}): ${e.message}` : `처리 오류(${stage}): ${e.name}`);
   }
@@ -190,6 +191,7 @@ async function localApi(path, opts = {}) {
     const s = new Session(label, fname);
     if (GLOBAL.dirHandle) { try { await s.store.attach(GLOBAL.dirHandle); } catch (e) { s.store.err = String(e.message || e); } }
     const ext = (fname.match(/\.[^.]+$/) || [".pptx"])[0].toLowerCase();
+    s.origBuf = ext === ".pdf" ? buf.slice(0) : null;
     s.store.set("original_presentation" + ext, new Blob([buf]));
     try { s.slides = await extractSlides(fname, buf, s.imgData); }
     catch (e) { throw new Error("발표자료 읽기 실패: " + e.message); }
@@ -253,8 +255,12 @@ async function sessionStep(s, step, b) {
     return { duration_seconds: s.audio.seconds, bytes: s.audio.blob.size, ...s.payload() };
   }
   if (step === "concepts") {
-    const imgs = b.model === "mock" ? [] : (s.slides.page_images || []).map(f => s.imgData[f].dataUrl);
-    let d = await runLlm(s, b, P.CONCEPTS_SYS, conceptsUser(s.slides, imgs.length), "concepts", imgs);
+    let imgs = [], media;
+    if (b.model !== "mock") {
+      if (s.origBuf && isGemini(b.model) && s.origBuf.byteLength <= MAX_INLINE_BYTES) media = [{ mime: "application/pdf", data: bufToB64(s.origBuf) }];   // PDF 파일 그대로
+      else imgs = (s.slides.page_images || []).map(f => s.imgData[f].dataUrl);                                                                          // 그 외: 쪽 이미지로 대체
+    }
+    let d = await runLlm(s, b, P.CONCEPTS_SYS, conceptsUser(s.slides, imgs.length, !!media), "concepts", imgs, undefined, media);
     d = postConcepts(d, s.slides);
     if (!d.concepts.length) throw new Error("모델이 개념을 하나도 반환하지 않았습니다. 다른 모델로 시도해 보세요.");
     s.concepts = d; s.writeJson("1_알아야_할_개념.json", d); s.write("1_알아야_할_개념.md", conceptsMd(d, s.meta()));

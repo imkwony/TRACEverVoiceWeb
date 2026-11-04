@@ -45,7 +45,8 @@ async function listModels(key, baseUrl) {
   catch (e) { throw new LLMError("모델 목록 응답 형식이 문서와 다릅니다."); }
 }
 
-async function callRaw(model, key, system, user, baseUrl, images, audio) {
+async function callRaw(model, key, system, user, baseUrl, images, audio, media) {
+  if (media && media.length) return await geminiRaw(model, key, system, user, baseUrl, media);
   const content = ((!images || !images.length) && !audio) ? user
     : [{ type: "text", text: user }, ...(images || []).map(u => ({ type: "image_url", image_url: { url: u } })),
        ...(audio ? [{ type: "input_audio", input_audio: { data: audio.data, format: audio.format } }] : [])];   // OpenAI 호환 음성 입력
@@ -66,6 +67,27 @@ async function callRaw(model, key, system, user, baseUrl, images, audio) {
     usage = { prompt: pt, completion: ct, total: tt, credit: cr };
   }
   return [text, usage];
+}
+
+/* ---------- Gemini 네이티브(BAZE 패스스루): PDF를 파일 그대로(inline_data) 전달 ---------- */
+const isGemini = m => /gemini/i.test(String(m));
+const MAX_INLINE_BYTES = 14 * 1024 * 1024;
+function bufToB64(buf) {
+  const u8 = new Uint8Array(buf); let s = ""; const CH = 0x8000;
+  for (let i = 0; i < u8.length; i += CH) s += String.fromCharCode.apply(null, u8.subarray(i, i + CH));
+  return btoa(s);
+}
+async function geminiRaw(model, key, system, user, baseUrl, media) {
+  const parts = [{ text: user }, ...media.map(m => ({ inline_data: { mime_type: m.mime, data: m.data } }))];
+  const body = { systemInstruction: { parts: [{ text: system }] }, contents: [{ role: "user", parts }], generationConfig: { maxOutputTokens: 16000 } };
+  const url = baseOf(baseUrl) + "/gemini/v1beta/models/" + encodeURIComponent(model) + ":generateContent";
+  const j = await postJson(url, { ...headersOf(key), "x-goog-api-key": key }, body);
+  let text;
+  try { text = (j.candidates[0].content.parts || []).map(p => p.text || "").join(""); } catch (e) { throw new LLMError("응답 형식 오류: " + JSON.stringify(j).slice(0, 300)); }
+  if (!text) throw new LLMError("모델이 빈 응답을 반환했습니다. 다른 모델로 시도해 보세요.");
+  const u = j.usageMetadata || {}, bill = j.billing;
+  const cr = bill && bill.deducted_credit != null && !isNaN(Number(bill.deducted_credit)) ? Number(bill.deducted_credit) : null;
+  return [text, { prompt: u.promptTokenCount ?? null, completion: u.candidatesTokenCount ?? null, total: u.totalTokenCount ?? null, credit: cr }];
 }
 
 /* ---------- mock (API 호출 없이 화면·흐름 시험용) ---------- */
@@ -114,11 +136,11 @@ function addUsage(a, b) {
   const o = {}; for (const k of ["prompt", "completion", "total", "credit"]) o[k] = (a[k] == null || b[k] == null) ? null : a[k] + b[k];
   return o;
 }
-async function callJson(model, key, system, user, stage, baseUrl, images, audio) {
+async function callJson(model, key, system, user, stage, baseUrl, images, audio, media) {
   if (model === "mock") { const d = mockResponse(stage, user); return [d, JSON.stringify(d), null]; }
-  const [raw, u1] = await callRaw(model, key, system, user, baseUrl, images, audio);
+  const [raw, u1] = await callRaw(model, key, system, user, baseUrl, images, audio, media);
   try { return [parseJson(raw), raw, u1]; } catch (e) {
-    const [raw2, u2] = await callRaw(model, key, system + "\n\n반드시 유효한 JSON 객체 하나만 출력하라. 설명·코드펜스 금지.", user, baseUrl, images, audio);
+    const [raw2, u2] = await callRaw(model, key, system + "\n\n반드시 유효한 JSON 객체 하나만 출력하라. 설명·코드펜스 금지.", user, baseUrl, images, audio, media);
     try { return [parseJson(raw2), raw2, addUsage(u1, u2)]; }
     catch (e2) { throw new LLMError("모델이 유효한 JSON을 반환하지 않았습니다. 다른 모델로 시도해 보세요."); }
   }

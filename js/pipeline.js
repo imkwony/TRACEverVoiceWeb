@@ -2,8 +2,10 @@
 const P = PROMPTS;
 const r1 = x => Math.round(x * 10) / 10;
 
-function conceptsUser(slides, nImages = 0) {
-  const head = nImages
+function conceptsUser(slides, nImages = 0, pdf = false) {
+  const head = pdf
+    ? "첨부된 PDF 파일이 발표자료의 원본이다. PDF를 직접 읽어라(글자·그림·도표·차트 모두). 아래 텍스트는 보조 정보(추출된 글자)다.\n\n"
+    : nImages
     ? `첨부된 이미지 ${nImages}장은 발표자료의 각 쪽을 1쪽부터 순서대로 그린 것이다. 이미지가 발표자료의 원본이며, 글자가 추출되지 않은 쪽은 이미지를 직접 읽어라. 아래 텍스트는 보조 정보(추출된 글자)다.\n\n`
     : "아래는 발표자료에서 추출한 슬라이드별 텍스트(차트 데이터·그림 설명 포함)다.\n\n";
   return head + slidesToText(slides);
